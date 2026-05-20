@@ -655,6 +655,7 @@ async def _run(
     batch_size: int,
     folder_batch: int,
     cooldown: float,
+    skip_step1: bool = False,
 ) -> None:
     db_url      = os.environ["APP_DATABASE_URL"].replace("postgresql+asyncpg://", "postgresql://")
     bucket_name = os.environ["GCS_BUCKET_NAME"]
@@ -694,7 +695,10 @@ async def _run(
         sync_ts = datetime.now(timezone.utc)
         logger.info("Sync started at: %s", sync_ts.isoformat())
 
-        await _step1_export_metadata(conn, walker, folder_id, path_prefix, batch_size, sync_ts)
+        if skip_step1:
+            logger.info("Step 1 — Skipped (--skip-step1)")
+        else:
+            await _step1_export_metadata(conn, walker, folder_id, path_prefix, batch_size, sync_ts)
         await _step2_create_gcs_folders(conn, control, bucket_name, folder_batch, cooldown)
         await _step3_upload_files(conn, uploader, batch_size, cooldown)
         await _step4_insert_processed_documents(conn, last_sync_ts)
@@ -738,9 +742,13 @@ def main() -> None:
         default=float(os.environ.get("SYNC_COOLDOWN", DEFAULT_COOLDOWN)),
         metavar="SECS", help=f"Sleep between batches in seconds (default: {DEFAULT_COOLDOWN})",
     )
+    parser.add_argument(
+        "--skip-step1", action="store_true",
+        help="Skip Box folder walk (step 1); process only files already in box_file_export",
+    )
     args = parser.parse_args()
     asyncio.run(_run(args.folder_id, args.path_prefix, args.batch_size,
-                     args.folder_batch, args.cooldown))
+                     args.folder_batch, args.cooldown, args.skip_step1))
 
 
 if __name__ == "__main__":
