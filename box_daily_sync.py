@@ -20,7 +20,7 @@ Steps on each run:
   7. Propagate document_match_group_id from accounts to new documents
   8. Enqueue PDFs and images (enqueued_at IS NULL, any Box-migrated file): set
      enqueued_at + priority so ProcessQueueService picks them up for Pub/Sub dispatch
-  9. Record sync completion timestamp in public.sync_state
+  9. Record sync completion timestamp in public.box_sync_state
 
 All steps are idempotent — re-running after a crash picks up exactly where it
 left off.
@@ -95,7 +95,7 @@ _GCS_RETRYABLE       = (
 # ── SQL ───────────────────────────────────────────────────────────────────────
 
 _ENSURE_TABLES_SQL = """
-CREATE TABLE IF NOT EXISTS public.sync_state (
+CREATE TABLE IF NOT EXISTS public.box_sync_state (
     key        TEXT        PRIMARY KEY,
     value      TEXT        NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -239,10 +239,10 @@ WHERE pd.enqueued_at IS NULL
   )
 """
 
-_GET_LAST_SYNC_SQL = "SELECT value FROM public.sync_state WHERE key = 'last_sync_completed_at'"
+_GET_LAST_SYNC_SQL = "SELECT value FROM public.box_sync_state WHERE key = 'last_sync_completed_at'"
 
 _UPSERT_SYNC_STATE_SQL = """
-INSERT INTO public.sync_state (key, value, updated_at)
+INSERT INTO public.box_sync_state (key, value, updated_at)
 VALUES ($1, $2::text, NOW())
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
 """

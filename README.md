@@ -18,7 +18,7 @@ Each run executes 9 idempotent steps. Re-running after a crash picks up exactly 
 | 6 | `CALL app.backfill_documents()` — assigns `folder_id` on `processed_documents` |
 | 7 | Propagate `document_match_group_id` from `accounts` to new documents |
 | 8 | Enqueue PDFs and images (`status = 'New'`, `enqueued_at IS NULL`) so `ProcessQueueService` dispatches them via Pub/Sub |
-| 9 | Record `last_sync_completed_at` in `public.sync_state` |
+| 9 | Record `last_sync_completed_at` in `public.box_sync_state` |
 
 Only files whose `box_folder_path` matches an account's `gcs_root_path` are inserted into `processed_documents`. All files are uploaded to GCS regardless.
 
@@ -76,4 +76,4 @@ The script auto-creates the staging tables on first run if they don't exist:
 
 - `public.box_file_export` — one row per Box file discovered
 - `public.box_folder_export` — one row per Box folder discovered
-- `public.sync_state` — stores `last_sync_completed_at` as the cursor for the next run
+- `public.box_sync_state` — stores `last_sync_completed_at` as the cursor for the next run
