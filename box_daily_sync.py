@@ -186,7 +186,8 @@ INSERT INTO app.processed_documents (
     file_size_bytes,
     source,
     account_id,
-    original_file_type
+    original_file_type,
+    status
 )
 SELECT
     gen_random_uuid(),
@@ -197,12 +198,12 @@ SELECT
     bfe.size_bytes,
     'GCS',
     a.id,
-    bfe.content_type
+    bfe.content_type,
+    'New'
 FROM public.box_file_export bfe
 JOIN app.accounts a
     ON starts_with(bfe.box_folder_path || '/', a.gcs_root_path)
-WHERE bfe.exported_at >= $1
-  AND bfe.processed = TRUE
+WHERE bfe.processed = TRUE
   AND NOT EXISTS (
       SELECT 1 FROM app.processed_documents pd
       WHERE pd.document_id = bfe.document_id
@@ -609,12 +610,9 @@ async def _step2_create_gcs_folders(
     return total_created, total_errors
 
 
-async def _step4_insert_processed_documents(
-    conn: asyncpg.Connection,
-    since_ts: datetime,
-) -> int:
-    logger.info("Step 4 — Inserting processed_documents for new files (since %s)", since_ts.isoformat())
-    result = await conn.execute(_INSERT_NEW_PROCESSED_DOCUMENTS_SQL, since_ts)
+async def _step4_insert_processed_documents(conn: asyncpg.Connection) -> int:
+    logger.info("Step 4 — Inserting processed_documents for new files")
+    result = await conn.execute(_INSERT_NEW_PROCESSED_DOCUMENTS_SQL)
     count = int(result.split()[-1])
     logger.info("Step 4 done — inserted: %d rows", count)
     return count
@@ -701,7 +699,7 @@ async def _run(
             await _step1_export_metadata(conn, walker, folder_id, path_prefix, batch_size, sync_ts)
         await _step2_create_gcs_folders(conn, control, bucket_name, folder_batch, cooldown)
         await _step3_upload_files(conn, uploader, batch_size, cooldown)
-        await _step4_insert_processed_documents(conn, last_sync_ts)
+        await _step4_insert_processed_documents(conn)
         await _step5_backfill_folders(conn)
         await _step6_backfill_document_assignments(conn)
         await _step7_propagate_document_match_group_id(conn)
