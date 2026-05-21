@@ -1,0 +1,50 @@
+# Substitution defaults — override via --substitutions flag or Cloud Build trigger config.
+#
+# Secrets must exist in Secret Manager before deploying:
+#   box-daily-sync-app-database-url      APP_DATABASE_URL
+#   box-daily-sync-box-client-id         BOX_CLIENT_ID
+#   box-daily-sync-box-client-secret     BOX_CLIENT_SECRET
+#   box-daily-sync-box-subject-id        BOX_SUBJECT_ID
+#   box-daily-sync-gcs-bucket-name       GCS_BUCKET_NAME
+#   box-daily-sync-google-creds          GOOGLE_CREDS  (optional, omit if using Workload Identity)
+
+substitutions:
+  _REGION: us-central1
+  _AR_REPO: box-daily-sync
+  _JOB_NAME: box-daily-sync
+  _VPC_NETWORK: default
+  _VPC_SUBNET: default
+  _SERVICE_ACCOUNT: box-daily-sync@PROJECT_ID.iam.gserviceaccount.com
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - $_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/box-daily-sync:$COMMIT_SHA
+      - .
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - $_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/box-daily-sync:$COMMIT_SHA
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - deploy
+      - $_JOB_NAME
+      - --image=$_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/box-daily-sync:$COMMIT_SHA
+      - --region=$_REGION
+      - --service-account=$_SERVICE_ACCOUNT
+      - --network=$_VPC_NETWORK
+      - --subnet=$_VPC_SUBNET
+      - --vpc-egress=private-ranges-only
+      - --max-retries=0
+      - --task-timeout=12h
+      - --set-secrets=APP_DATABASE_URL=box-daily-sync-app-database-url:latest,BOX_CLIENT_ID=box-daily-sync-box-client-id:latest,BOX_CLIENT_SECRET=box-daily-sync-box-client-secret:latest,BOX_SUBJECT_ID=box-daily-sync-box-subject-id:latest,GCS_BUCKET_NAME=box-daily-sync-gcs-bucket-name:latest,GOOGLE_CREDS=box-daily-sync-google-creds:latest
+
+images:
+  - $_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/box-daily-sync:$COMMIT_SHA
