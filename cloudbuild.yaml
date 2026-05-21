@@ -38,7 +38,7 @@ steps:
       - --image=$_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/box-daily-sync:$COMMIT_SHA
       - --region=$_REGION
       - --service-account=$_SERVICE_ACCOUNT
-      - --add-cloudsql-instances=$_CLOUDSQL_INSTANCE
+      - --set-cloudsql-instances=$_CLOUDSQL_INSTANCE
       - --max-retries=0
       - --task-timeout=12h
       - --set-secrets=APP_DATABASE_URL=dms3-app-database-url:latest,BOX_CLIENT_ID=BOX_CLIENT_ID:latest,BOX_CLIENT_SECRET=BOX_CLIENT_SECRET:latest,BOX_SUBJECT_ID=BOX_SUBJECT_ID:latest,GCS_BUCKET_NAME=dms3-documents-gcs-bucket-name:latest,GOOGLE_CREDS=GOOGLE_CREDS:latest
